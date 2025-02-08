@@ -1,44 +1,69 @@
-import React, { useState } from "react";
-import EyeLogo from "./Eye";
+import React, { useState, useRef } from "react";
+import Eye, { EyeRef } from "./Eye";
 
 const App: React.FC = () => {
-  const [pupilPosition, setPupilPosition] = useState({ x: 100, y: 100 });
   const [isTextFocused, setIsTextFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const eyeRef = useRef<EyeRef>(null);
+
+  const [eyeInnerColor, setEyeInnerColor] = useState("white");
+
+  const handleMouseLeave = () => {
+    setEyeInnerColor("grey")
+    if (!eyeRef.current) return;
+    eyeRef.current.reset();
+  };
+
+  const handleMouseEnter = () => {
+    setEyeInnerColor("white")
+  }
 
   const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
     if (isTextFocused) return;
+    if (!eyeRef.current) return;
 
-    const rect = event.currentTarget.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-
-    const deltaX = event.clientX - centerX;
-    const deltaY = event.clientY - centerY;
-    const distance = Math.sqrt(deltaX ** 2 + deltaY ** 2);
-
-    const maxMove = 30; // Limit pupil movement
-    const scale = Math.min(1, maxMove / distance);
-
-    setPupilPosition({
-      x: 100 + deltaX * scale,
-      y: 100 + deltaY * scale,
-    });
+    eyeRef.current.lookAt(event.clientX, event.clientY);
   };
 
   const handleFocus = () => {
     setIsTextFocused(true);
-    setPupilPosition({ x: 100, y: 130 }); // Lock eye looking down
+    updatePupilToCursor();
   };
 
   const handleBlur = () => {
     setIsTextFocused(false);
   };
 
+  const updatePupilToCursor = () => {
+    if (!inputRef.current) return;
+    const input = inputRef.current;
+    const rect = input.getBoundingClientRect();
+    const fontSize = 16; // Approximate character width
+    const charWidth = fontSize * 0.6; // Estimate average char width
+
+    const cursorIndex = input.selectionStart || 0;
+    const cursorX = rect.left + cursorIndex * charWidth + 5;
+    const cursorY = rect.top + rect.height / 2;
+
+    eyeRef.current?.lookAt(cursorX, cursorY);
+  };
+
   return (
     <div style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}
-      onMouseMove={handleMouseMove}>
-      <EyeLogo pupilX={pupilPosition.x} pupilY={pupilPosition.y} maxMove={30} />
-      <input type="text" onFocus={handleFocus} onBlur={handleBlur} style={{ marginTop: "20px", padding: "10px", fontSize: "16px" }} placeholder="Type something..." />
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onMouseEnter={handleMouseEnter}>
+      <Eye ref={eyeRef} maxMoveX={45} maxMoveY={30} depth={7} innerColor={eyeInnerColor} />
+      <input
+        ref={inputRef}
+        type="text"
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onKeyDown={updatePupilToCursor}
+        onMouseUp={updatePupilToCursor}
+        style={{ marginTop: "20px", padding: "10px", fontSize: "16px", width: "400px", fontFamily: "monospace" }}
+        placeholder="Type something..."
+      />
     </div>
   );
 };
